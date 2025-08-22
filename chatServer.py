@@ -147,6 +147,7 @@ class Group:
     def __init__(self, group_data='default'):
         self.name = group_data[:-4]
         self.data = to_dict(open(f'groups\\{group_data}').read())
+        self.votes = Vote(self.name)
 
     def add_member(self, username):
         tmp = self.data['members'].copy()
@@ -185,7 +186,6 @@ for g in listdir('groups'):
     if g.endswith('.dat'):
         tmp_name = g[:-4]
         groupList[tmp_name] = Group(g)
-        groupList[tmp_name].votes = Vote(tmp_name)
 
 
 def broadcast(message, group):
@@ -272,10 +272,11 @@ def handle_client(_client_socket, _addr):
                         i += 1
                     open(f'userData\\{tmp_id}.usr', 'w').write(
                         to_str(username=message['opt'][0], pwd=encrypt(message['opt'][1], message['opt'][0]),
-                               user_type='user', remember_me=False, show_uid=True, create_group=0, voted=False))
+                               user_type='user', remember_me=False, show_uid=True, create_group=0))
                     userList.append(User(tmp_id, open(f'userData\\{tmp_id}.usr', 'r').read()))
                     now = userList[-1]
                     now.orig_pwd = message['opt'][1]
+                    now.user_socket = _client_socket
                     _client_socket.send(f'ok {tmp_id} {str(now)}'.encode('utf-8'))
                 continue
             if message['cmd'] == 'check':
