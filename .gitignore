@@ -1,0 +1,6 @@
+/encrypt.py
+__pycache__/
+groups/
+userData/
+votes/
+.idea/
