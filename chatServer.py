@@ -346,7 +346,7 @@ def handle_client(_client_socket, _addr):
                     now.create_group()
                     open(f'groups\\{message['opt'][0]}.dat', 'w').write(
                         to_str(created_date=datetime.now().strftime("%Y-%m-%d"), members=[now.data['username']],
-                               pwd=message['opt'][1], vote=[], result=[]))
+                               pwd=message['opt'][1]))
                     open(f'votes\\{message['opt'][0]}.vot', 'w').write(to_str(title='', start_time=0, For=[],
                                                                               against=[], last_result=[]))
                     groupList[message['opt'][0]] = Group(f'{message['opt'][0]}.dat')
