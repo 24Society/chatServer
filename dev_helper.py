@@ -57,5 +57,9 @@ def update_default(c_type):
             open(f'votes\\{vote}', 'w').write(to_str(**tmp))
 
 
+def get_color(r, g, b):
+    return f'#{hex(r)[2:].rjust(2, '2')}{hex(g)[2:].rjust(2, '2')}{hex(b)[2:].rjust(2, '2')}'.upper()
+
+
 if __name__ == '__main__':
     update_default('votes')
