@@ -9,9 +9,9 @@ from typing import Any
 from dev_helper import *
 from encrypt import *
 
-minCompatibleClient = to_dict(open('minCompatibleClient.dat').read())
-latestClient = to_dict(open('latestClient.dat').read())
-default_user = open("userData\\default", "r").read()
+minCompatibleClient = to_dict(open('minCompatibleClient.dat', 'r', encoding='utf-8').read())
+latestClient = to_dict(open('latestClient.dat', 'r', encoding='utf-8').read())
+default_user = open('userData\\default', 'r', encoding='utf-8').read()
 
 
 class User:
@@ -103,42 +103,45 @@ class Vote:
     group: str
 
     def __init__(self, group):
-        self.data = to_dict(open(f'votes\\{group}.vot').read())
+        self.data = to_dict(open(f'votes\\{group}.vot', 'r', encoding='utf-8').read())
         self.group = group
 
     def start(self, title):
         self.data['title'] = title
         self.data['start_time'] = time()
-        orig_data = open(f'votes\\{self.group}.vot').read()
+        orig_data = open(f'votes\\{self.group}.vot', 'r', encoding='utf-8').read()
         updated_data = orig_data.replace("'title':''", f"'title':'{title}'")
         updated_data = updated_data.replace("'start_time':0", f"'start_time':{self.data['start_time']}")
-        open(f'votes\\{self.group}.vot', 'w').write(updated_data)
+        open(f'votes\\{self.group}.vot', 'w', encoding='utf-8').write(updated_data)
 
     def end(self):
         tmp = self.data['last_result']
         self.data['last_result'] = [self.data['title'], len(self.data['For']), len(self.data['against'])]
-        orig_data = open(f'votes\\{self.group}.vot').read()
+        orig_data = open(f'votes\\{self.group}.vot', 'r', encoding='utf-8').read()
         updated_data = orig_data.replace(f"'title':'{self.data['title']}'", "'title':''")
         updated_data = updated_data.replace(f"'start_time':{self.data['start_time']}", "'start_time':0")
         updated_data = updated_data.replace(f"'last_result':{tmp}", f"'last_result':{self.data['last_result']}")
         updated_data = updated_data.replace(f"'For':{self.data['For']}", "'For':[]")
         updated_data = updated_data.replace(f"'against':{self.data['against']}", "'against':[]")
-        open(f'votes\\{self.group}.vot', 'w').write(updated_data)
+        open(f'votes\\{self.group}.vot', 'w', encoding='utf-8').write(updated_data)
         self.data['title'] = ''
         self.data['start_time'] = 0
+        self.data['For'] = []
+        self.data['against'] = []
 
     def check(self):
         if time() - self.data['start_time'] >= 24 * 3600:
-            self.end()
+            if self.data['start_time'] > 0:
+                self.end()
             return True
         return False
 
     def vote(self, opt, username):
-        orig_data = open(f'votes\\{self.group}.vot').read()
+        orig_data = open(f'votes\\{self.group}.vot', 'r', encoding='utf-8').read()
         tmp = self.data[opt].copy()
         self.data[opt].append(username)
         updated_data = orig_data.replace(f"'{opt}':{tmp}", f"'{opt}':{self.data[opt]}")
-        open(f'votes\\{self.group}.vot', 'w').write(updated_data)
+        open(f'votes\\{self.group}.vot', 'w', encoding='utf-8').write(updated_data)
 
 
 class Group:
@@ -148,22 +151,22 @@ class Group:
 
     def __init__(self, group_data='default'):
         self.name = group_data[:-4]
-        self.data = to_dict(open(f'groups\\{group_data}').read())
+        self.data = to_dict(open(f'groups\\{group_data}', 'r', encoding='utf-8').read())
         self.votes = Vote(self.name)
 
     def add_member(self, username):
         tmp = self.data['members'].copy()
         self.data['members'].append(username)
-        orig_data = open(f'groups\\{self.name}.dat').read()
+        orig_data = open(f'groups\\{self.name}.dat', 'r', encoding='utf-8').read()
         updated_data = orig_data.replace(f"'members':{tmp}", f"'members':{self.data['members']}")
-        open(f'groups\\{self.name}.dat', 'w').write(updated_data)
+        open(f'groups\\{self.name}.dat', 'w', encoding='utf-8').write(updated_data)
 
     def del_member(self, username):
         tmp = self.data['members'].copy()
         self.data['members'].remove(username)
-        orig_data = open(f'groups\\{self.name}.dat').read()
+        orig_data = open(f'groups\\{self.name}.dat', 'r', encoding='utf-8').read()
         updated_data = orig_data.replace(f"'members':{tmp}", f"'members':{self.data['members']}")
-        open(f'groups\\{self.name}.dat', 'w').write(updated_data)
+        open(f'groups\\{self.name}.dat', 'w', encoding='utf-8').write(updated_data)
 
     def start_vote(self, vote_title):
         self.votes.start(vote_title)
@@ -268,7 +271,7 @@ class Game:
 userList: list[User] = []
 for u in listdir('userData'):
     if u.endswith('.usr'):
-        userList.append(User(int(u[:-4]), open(f'userData\\{u}', 'r').read()))
+        userList.append(User(int(u[:-4]), open(f'userData\\{u}', 'r', encoding='utf-8').read()))
 
 groupList: dict[str, Group] = {}
 for g in listdir('groups'):
@@ -366,10 +369,10 @@ def handle_client(_client_socket, _addr):
                                 tmp_id += 1
                                 i = 0
                             i += 1
-                        open(f'userData\\{tmp_id}.usr', 'w').write(
+                        open(f'userData\\{tmp_id}.usr', 'w', encoding='utf-8').write(
                             to_str(username=message['opt'][0], pwd=encrypt(message['opt'][1], message['opt'][0]),
                                    user_type='user', remember_me=False, show_uid=True, create_group=0))
-                        userList.append(User(tmp_id, open(f'userData\\{tmp_id}.usr', 'r').read()))
+                        userList.append(User(tmp_id, open(f'userData\\{tmp_id}.usr', 'r', encoding='utf-8').read()))
                         now = userList[-1]
                         now.orig_pwd = message['opt'][1]
                         now.user_socket = _client_socket
@@ -441,13 +444,13 @@ def handle_client(_client_socket, _addr):
                             break
                     else:
                         now.create_group()
-                        open(f'groups\\{message['opt'][0]}.dat', 'w').write(
+                        open(f'groups\\{message['opt'][0]}.dat', 'w', encoding='utf-8').write(
                             to_str(created_date=datetime.now().strftime("%Y-%m-%d"), members=[now.data['username']],
                                    pwd=message['opt'][1]))
-                        open(f'votes\\{message['opt'][0]}.vot', 'w').write(to_str(title='', start_time=0, For=[],
-                                                                                  against=[], last_result=[]))
+                        open(f'votes\\{message['opt'][0]}.vot', 'w', encoding='utf-8').write(
+                            to_str(title='', start_time=0, For=[], against=[], last_result=[]))
                         groupList[message['opt'][0]] = Group(f'{message['opt'][0]}.dat')
-                        open(f'groups\\{message['opt'][0]}.grp', 'w').write('')
+                        open(f'groups\\{message['opt'][0]}.grp', 'w', encoding='utf-8').write('')
                         _client_socket.send(f'ok 还可创建{2 - now.data['create_group']}个群聊'.encode('utf-8'))
                     continue
                 if message['cmd'] == 'enter':
@@ -503,6 +506,7 @@ def handle_client(_client_socket, _addr):
                     tmp = groupList[message['opt'][0]]
                     if tmp.check_date():
                         _client_socket.send('refused 没有正在进行的投票'.encode('utf-8'))
+                        continue
                     _client_socket.send(('ok ' + groupList[message['opt'][0]].votes.data['title']).encode('utf-8'))
                     continue
                 if message['cmd'] == 'vote':
