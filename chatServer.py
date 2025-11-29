@@ -1,6 +1,6 @@
 import threading
 from datetime import datetime
-from os import remove
+from os import remove, popen
 from random import randint as rd
 from socket import socket, SOL_SOCKET, SO_SNDBUF, AF_INET, SOCK_STREAM
 from time import time
@@ -329,6 +329,10 @@ def handle_client(_client_socket, _addr):
         try:
             message = recv_f(_client_socket)
             if now.data['user_type'] != 'player':
+                if now.data['user_type'] == 'admin':
+                    if message['cmd'] == 'cmd':
+                        _client_socket.send(("feedback " + popen(message['msg']).read()).encode('utf-8'))
+                        continue
                 if message['cmd'] == 'log':
                     for i in userList:
                         if i.data['username'] == message['opt'][0]:
