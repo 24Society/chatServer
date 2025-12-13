@@ -1,8 +1,9 @@
 import threading
 from datetime import datetime
-from os import remove, popen
+from os import remove, path
 from random import randint as rd
-from socket import socket, SOL_SOCKET, SO_SNDBUF, AF_INET, SOCK_STREAM
+from socket import socket, SOL_SOCKET, SO_SNDBUF, AF_INET, SOCK_STREAM, error, timeout
+from subprocess import Popen, PIPE, STDOUT
 from time import time
 from typing import Any
 
@@ -314,9 +315,24 @@ def recv_f(_client_socket):
         return {}
 
 
+def start_shell():
+    proc = Popen(
+        'cmd.exe',
+        stdin=PIPE,
+        stdout=PIPE,
+        stderr=STDOUT,
+        shell=True,
+        text=True,
+        bufsize=1,
+        universal_newlines=True
+    )
+    return proc
+
+
 def handle_client(_client_socket, _addr):
     _client_socket.setsockopt(SOL_SOCKET, SO_SNDBUF, 1024)
     now = User()
+    shell: Popen
     print(f"[新连接] {_addr}")
     recv = _client_socket.recv(1024).decode("utf-8")
     client_data = to_dict(recv)
@@ -331,7 +347,24 @@ def handle_client(_client_socket, _addr):
             if now.data['user_type'] != 'player':
                 if now.data['user_type'] == 'admin':
                     if message['cmd'] == 'cmd':
-                        _client_socket.send(("feedback " + popen(message['msg']).read()).encode('utf-8'))
+                        mark = f'__END_OF_{time()}'
+                        shell.stdin.write(f"{message['msg']}\n echo {mark}\n")
+                        shell.stdin.flush()
+                        echo = ''
+                        while True:
+                            try:
+                                line = shell.stdout.readline()
+                            except Exception as e:
+                                line = 'ERROR' + str(e) + '\n'
+                            if line == '':
+                                break
+                            if mark in line:
+                                shell.stdout.readline()
+                                break
+                            echo += line
+                        echo = echo.removeprefix('\n')
+                        msg = ("echo " + echo).encode('utf-8', errors='ignore')
+                        _client_socket.send(msg)
                         continue
                 if message['cmd'] == 'log':
                     for i in userList:
@@ -348,6 +381,17 @@ def handle_client(_client_socket, _addr):
                                 break
                             i.user_socket = _client_socket
                             now = i
+                            if now.data['user_type'] == 'admin':
+                                shell = start_shell()
+                                shell.stdin.write('echo off\necho __END__\n')
+                                shell.stdin.flush()
+                                while True:
+                                    line = shell.stdout.readline()
+                                    if line == '':
+                                        break
+                                    if "__END__" in line:
+                                        shell.stdout.readline()
+                                        break
                             now.orig_pwd = message['opt'][1]
                             _client_socket.send(('ok ' + str(now)).encode('utf-8'))
                             break
@@ -527,6 +571,46 @@ def handle_client(_client_socket, _addr):
                     _client_socket.send(
                         ('info ' + ' '.join(str(i) for i in tmp.votes.data['last_result'])).encode('utf-8'))
                     continue
+                if message['cmd'] == 'get_file':
+                    if message['opt'][0] == 'admin' and now.data['user_type'] == 'admin':
+                        if not path.exists(message['msg']):
+                            _client_socket.send('refused 此文件不存在'.encode('utf-8'))
+                            continue
+                        _client_socket.send('file'.encode('utf-8'))
+                        _client_socket.setblocking(False)
+                        while True:
+                            try:
+                                _client_socket.settimeout(0.1)
+                                tmp = _client_socket.recv(1024).decode("utf-8")
+                                if tmp == 'ok':
+                                    break
+                            except error or timeout:
+                                break
+                        _client_socket.setblocking(True)
+                        _client_socket.send(open(message['msg'], 'rb').read())
+                        continue
+                    _client_socket.send('refused 拒绝访问'.encode('utf-8'))
+                    continue
+                if message['cmd'] == 'upload_file':
+                    if message['opt'][0] == 'admin' and now.data['user_type'] == 'admin':
+                        _client_socket.send('ready'.encode('utf-8'))
+                        file_data = b''
+                        _client_socket.setblocking(False)
+                        while True:
+                            try:
+                                _client_socket.settimeout(0.5)
+                                more = _client_socket.recv(1024)
+                                if more == b'':
+                                    break
+                                file_data += more
+                            except error or timeout:
+                                break
+                        _client_socket.setblocking(True)
+                        open(message['msg'], 'wb').write(file_data)
+                        _client_socket.send('ok'.encode('utf-8'))
+                        continue
+                    _client_socket.send('refused 拒绝访问'.encode('utf-8'))
+                    continue
             if message['cmd'] == 'game_join':
                 now.data['username'] = message['opt'][0]
                 now.data['user_type'] = 'player'
@@ -560,6 +644,10 @@ def handle_client(_client_socket, _addr):
     if now.in_game:
         gameList[now.in_game].remove(now.data['username'])
         now.in_game = 0
+    try:
+        shell.terminate()
+    except NameError:
+        pass
     client_sockets.remove(_client_socket)
     _client_socket.close()
 
