@@ -322,9 +322,8 @@ def start_shell():
         stdout=PIPE,
         stderr=STDOUT,
         shell=True,
-        text=True,
-        bufsize=1,
-        universal_newlines=True
+        text=False,
+        universal_newlines=False
     )
     return proc
 
@@ -348,14 +347,18 @@ def handle_client(_client_socket, _addr):
                 if now.data['user_type'] == 'admin':
                     if message['cmd'] == 'cmd':
                         mark = f'__END_OF_{time()}'
-                        shell.stdin.write(f"{message['msg']}\n echo {mark}\n")
+                        shell.stdin.write(f"{message['msg']}\n echo {mark}\n".encode('utf-8'))
                         shell.stdin.flush()
                         echo = ''
                         while True:
                             try:
                                 line = shell.stdout.readline()
+                                try:
+                                    line = line.decode('utf-8')
+                                except UnicodeDecodeError:
+                                    line = line.decode('gbk')
                             except Exception as e:
-                                line = 'ERROR' + str(e) + '\n'
+                                line = 'ERROR:' + str(e) + '\n'
                             if line == '':
                                 break
                             if mark in line:
@@ -383,13 +386,13 @@ def handle_client(_client_socket, _addr):
                             now = i
                             if now.data['user_type'] == 'admin':
                                 shell = start_shell()
-                                shell.stdin.write('echo off\necho __END__\n')
+                                shell.stdin.write(b'echo off\necho __END__\n')
                                 shell.stdin.flush()
                                 while True:
                                     line = shell.stdout.readline()
-                                    if line == '':
+                                    if line == b'':
                                         break
-                                    if "__END__" in line:
+                                    if b"__END__" in line:
                                         shell.stdout.readline()
                                         break
                             now.orig_pwd = message['opt'][1]
@@ -576,7 +579,7 @@ def handle_client(_client_socket, _addr):
                         if not path.exists(message['msg']):
                             _client_socket.send('refused 此文件不存在'.encode('utf-8'))
                             continue
-                        _client_socket.send('file'.encode('utf-8'))
+                        _client_socket.send(f'file {path.getsize(message['msg'])}'.encode('utf-8'))
                         _client_socket.setblocking(False)
                         while True:
                             try:
