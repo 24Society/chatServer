@@ -7,4 +7,8 @@ And there must be `public.grp`, `public.dat` under `groups`, and `public.vot` un
 
 If you want to use `dev_helper.py`, make sure you have default configure file for the program to read.
 
+Of course, you can run `setup.py` to create all these files to get a quick start. **Note that the default encrypt
+function is
+very simple, which means you should change it into your own encrypting algorithm at once.**
+
 It should be used with the project chatClient.

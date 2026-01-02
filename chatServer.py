@@ -1,6 +1,6 @@
 import threading
 from datetime import datetime
-from os import remove, path
+from os import remove, path, mkdir
 from random import randint as rd
 from socket import socket, SOL_SOCKET, SO_SNDBUF, AF_INET, SOCK_STREAM, error, timeout
 from subprocess import Popen, PIPE, STDOUT
@@ -331,7 +331,7 @@ def start_shell():
 def handle_client(_client_socket, _addr):
     _client_socket.setsockopt(SOL_SOCKET, SO_SNDBUF, 1024)
     now = User()
-    shell: Popen
+    shell = Popen
     print(f"[新连接] {_addr}")
     recv = _client_socket.recv(1024).decode("utf-8")
     client_data = to_dict(recv)
@@ -500,8 +500,9 @@ def handle_client(_client_socket, _addr):
                                    pwd=message['opt'][1]))
                         open(f'votes\\{message['opt'][0]}.vot', 'w', encoding='utf-8').write(
                             to_str(title='', start_time=0, For=[], against=[], last_result=[]))
-                        groupList[message['opt'][0]] = Group(f'{message['opt'][0]}.dat')
                         open(f'groups\\{message['opt'][0]}.grp', 'w', encoding='utf-8').write('')
+                        mkdir(f'files\\{message['opt'][0]}')
+                        groupList[message['opt'][0]] = Group(f'{message['opt'][0]}.dat')
                         _client_socket.send(f'ok 还可创建{2 - now.data['create_group']}个群聊'.encode('utf-8'))
                     continue
                 if message['cmd'] == 'enter':
@@ -574,6 +575,9 @@ def handle_client(_client_socket, _addr):
                     _client_socket.send(
                         ('info ' + ' '.join(str(i) for i in tmp.votes.data['last_result'])).encode('utf-8'))
                     continue
+                if message['cmd'] == 'get_file_list':
+                    _client_socket.send(('ok ' + str(listdir(f'files\\{message['opt'][0]}'))).encode('utf-8'))
+                    continue
                 if message['cmd'] == 'get_file':
                     if message['opt'][0] == 'admin' and now.data['user_type'] == 'admin':
                         if not path.exists(message['msg']):
@@ -592,24 +596,59 @@ def handle_client(_client_socket, _addr):
                         _client_socket.setblocking(True)
                         _client_socket.send(open(message['msg'], 'rb').read())
                         continue
+                    if message['opt'][0] == 'user':
+                        f_path = f'files\\{message['opt'][1]}\\{message['msg']}'
+                        if not path.exists(f_path):
+                            _client_socket.send('refused 此文件不存在'.encode('utf-8'))
+                            continue
+                        _client_socket.send(f'file {path.getsize(f_path)}'.encode('utf-8'))
+                        _client_socket.setblocking(False)
+                        while True:
+                            try:
+                                _client_socket.settimeout(0.1)
+                                tmp = _client_socket.recv(1024).decode("utf-8")
+                                if tmp == 'ok':
+                                    break
+                            except error or timeout:
+                                break
+                        _client_socket.setblocking(True)
+                        _client_socket.send(open(f_path, 'rb').read())
+                        continue
                     _client_socket.send('refused 拒绝访问'.encode('utf-8'))
                     continue
                 if message['cmd'] == 'upload_file':
                     if message['opt'][0] == 'admin' and now.data['user_type'] == 'admin':
                         _client_socket.send('ready'.encode('utf-8'))
-                        file_data = b''
+                        f = open(message['msg'], 'wb')
                         _client_socket.setblocking(False)
                         while True:
                             try:
                                 _client_socket.settimeout(0.5)
-                                more = _client_socket.recv(1024)
+                                more = _client_socket.recv(4096)
                                 if more == b'':
                                     break
-                                file_data += more
+                                f.write(more)
                             except error or timeout:
                                 break
                         _client_socket.setblocking(True)
-                        open(message['msg'], 'wb').write(file_data)
+                        f.close()
+                        _client_socket.send('ok'.encode('utf-8'))
+                        continue
+                    if message['opt'][0] == 'user':
+                        _client_socket.send('ready'.encode('utf-8'))
+                        f = open(f'files\\{message['opt'][1]}\\{message['msg']}', 'wb')
+                        _client_socket.setblocking(False)
+                        while True:
+                            try:
+                                _client_socket.settimeout(0.5)
+                                more = _client_socket.recv(4096)
+                                if more == b'':
+                                    break
+                                f.write(more)
+                            except error or timeout:
+                                break
+                        _client_socket.setblocking(True)
+                        f.close()
                         _client_socket.send('ok'.encode('utf-8'))
                         continue
                     _client_socket.send('refused 拒绝访问'.encode('utf-8'))
@@ -649,20 +688,20 @@ def handle_client(_client_socket, _addr):
         now.in_game = 0
     try:
         shell.terminate()
-    except NameError:
+    except TypeError:
         pass
     client_sockets.remove(_client_socket)
     _client_socket.close()
 
 
-HOST = '127.0.0.1'
+HOST = '0.0.0.0'
 PORT = 2048
 
 server = socket(AF_INET, SOCK_STREAM)
 server.bind((HOST, PORT))
 server.listen()
 
-print(f"[服务器启动] 监听 {HOST}:{PORT}")
+print(f"[服务器启动]")
 
 client_sockets = []
 

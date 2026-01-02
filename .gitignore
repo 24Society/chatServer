@@ -1,6 +1,7 @@
 /encrypt.py
 /*.zip
 __pycache__/
+files/
 groups/
 userData/
 votes/
