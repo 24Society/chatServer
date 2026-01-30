@@ -1,17 +1,15 @@
 from os import listdir
 
-tmp_dict = {}
-
 
 def to_dict(s: str) -> dict:
-    cmd = 'global tmp_dict\ntmp_dict='
+    cmd = ''
+    s = s.strip()
     if not s.startswith('{'):
         cmd += '{'
     cmd += s
     if not s.endswith('}'):
         cmd += '}'
-    exec(cmd)
-    return tmp_dict
+    return eval(cmd)
 
 
 def to_str(**config):
