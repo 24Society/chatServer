@@ -269,7 +269,7 @@ class Game:
         self.length.pop(usr)
 
 
-userList: list[User] = []
+userList: list[User] = list()
 for u in listdir('userData'):
     if u.endswith('.usr'):
         userList.append(User(int(u[:-4]), open(f'userData\\{u}', 'r', encoding='utf-8').read()))
@@ -602,17 +602,20 @@ def handle_client(_client_socket, _addr):
                             _client_socket.send('refused 此文件不存在'.encode('utf-8'))
                             continue
                         _client_socket.send(f'file {path.getsize(f_path)}'.encode('utf-8'))
+                        flag = False
                         _client_socket.setblocking(False)
                         while True:
                             try:
-                                _client_socket.settimeout(0.1)
+                                _client_socket.settimeout(1)
                                 tmp = _client_socket.recv(1024).decode("utf-8")
                                 if tmp == 'ok':
+                                    flag = True
                                     break
                             except error or timeout:
                                 break
                         _client_socket.setblocking(True)
-                        _client_socket.send(open(f_path, 'rb').read())
+                        if flag:
+                            _client_socket.send(open(f_path, 'rb').read())
                         continue
                     _client_socket.send('refused 拒绝访问'.encode('utf-8'))
                     continue
